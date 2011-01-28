@@ -57,15 +57,23 @@ else
 end
 
 while(1)
-  callsLeft = Twitter.rate_limit_status
-  puts "HITS: #{callsLeft.remaining_hits}/#{callsLeft.hourly_limit} | Reset in #{callsLeft.reset_time_in_seconds} seconds | Reset @ #{callsLeft.reset_time}"
+  begin
+    callsLeft = Twitter.rate_limit_status
+  rescue Twitter::ServiceUnavailable, Twitter::BadGateway 
+    puts "Twitter is not available at the moment. Sleeping for 30 seconds"
+    sleep 30
+    continue
+  end
+  if callsLeft.remaining_hits < 64
+    puts "HITS: #{callsLeft.remaining_hits}/#{callsLeft.hourly_limit} | Reset in #{callsLeft.reset_time_in_seconds} seconds | Reset @ #{callsLeft.reset_time}"
+  end
   if callsLeft.remaining_hits > 15
     options = { :since_id => last_id, :include_rts => 0, :include_entities => 0 }
     #Check for new mentions.
     Twitter.mentions(options).reverse.each do |mention|
       if mention.user.screen_name.downcase != MY_USERNAME.downcase
         #Handle the mention and move onto the next one
-        #puts mention.id.to_s + " : " + mention.text
+        puts "DEBUG : " + mention.id.to_s + " : " + mention.text
         begin
           if mention.text.downcase.start_with? "@#{MY_USERNAME.downcase} ?? version"
             puts "Got a version request from @#{mention.user.screen_name}"
@@ -74,8 +82,8 @@ while(1)
             puts "Got a help request from @#{mention.user.screen_name}"
             Twitter.update("@#{mention.user.screen_name} ?? help | ?? version | ?? keyword | !learn keyword definition | !say @user blah | !who keyword | #{rand(89)+10}", {:in_reply_to_status_id => mention.id})
           elsif mention.text.downcase.start_with? "@#{MY_USERNAME.downcase} !learn "
-            keyword = mention.text[/learn (\w+) (.+)/,1]
-            definition = mention.text[/learn (\w+) (.+)/,2]
+            keyword = mention.text[/learn (\S+) (.+)/,1]
+            definition = mention.text[/learn (\S+) (.+)/,2]
             if ADMINS.index(mention.user.screen_name).nil?
               puts "NOT Learning: #{keyword} => #{definition} | I don't know who #{mention.user.screen_name} is!"
               Twitter.update("@#{mention.user.screen_name} Sure... wait who are you again? | #{rand(89)+10}".slice(0..139), { :in_reply_to_status_id => mention.id })
@@ -93,8 +101,8 @@ while(1)
               end
             end
           elsif mention.text.downcase.start_with? "@#{MY_USERNAME.downcase} !say @"
-            username = mention.text[/say @(\w+) (.+)/,1]
-            message = mention.text[/say @(\w+) (.+)/,2]
+            username = mention.text[/say @(\S+) (.+)/,1]
+            message = mention.text[/say @(\S+) (.+)/,2]
             if ADMINS.index(mention.user.screen_name).nil?
               puts "NOT saying to @#{username} => #{message} | I don't know who #{mention.user.screen_name} is!"
               Twitter.update("@#{mention.user.screen_name} Sure... wait who are you again? | #{rand(89)+10}".slice(0..139), { :in_reply_to_status_id => mention.id })
@@ -103,7 +111,7 @@ while(1)
               Twitter.update("@#{username} #{message} | #{rand(89)+10}".slice(0..139))
             end
           elsif mention.text.downcase.start_with? "@#{MY_USERNAME.downcase} !who "
-            keyword = mention.text[/who (\w+)/,1]
+            keyword = mention.text[/who (\S+)/,1]
             key = Fact.find_by_keyword(keyword)
             if key.nil?
               Twitter.update("@#{mention.user.screen_name} Sorry, I don't know who defined #{keyword}. | #{rand(89)+10}".slice(0..139), {:in_reply_to_status_id => mention.id})
@@ -113,7 +121,7 @@ while(1)
             end
           elsif mention.text.downcase.start_with? "@#{MY_USERNAME.downcase} ?? "
             #?? keyword @includeme
-            keyword = mention.text[/\?\? (\w+)/,1]
+            keyword = mention.text[/\?\? (\S+)/,1]
             puts "Searching for #{keyword} for @#{mention.user.screen_name}"
             w = Fact.find_by_keyword( keyword, :first )
             if w.nil?
@@ -130,7 +138,7 @@ while(1)
         rescue Twitter::BadRequest, Twitter::Unauthorized, Twitter::Forbidden, Twitter::NotFound, 
                   Twitter::NotAcceptable, Twitter::EnhanceYourCalm, Twitter::InternalServerError, 
                   Twitter::BadGateway, Twitter::ServiceUnavailable => e
-          puts e.message 
+          puts e.message
         end
       end
       last_id = mention.id
@@ -142,9 +150,15 @@ while(1)
     end
     sleep 15
   else
-    Twitter.update("Twitter.com is complaining that I tweet too much! Going to sleep for #{callsLeft.reset_time_in_seconds/60} minutes / cc @#{ADMIN_USERNAME}")
-    puts "We hit the limit already! Going to sleep for #{callsLeft.reset_time_in_seconds/60} minutes."
-    sleep callsLeft.reset_time_in_seconds
+    begin
+      Twitter.update("Twitter.com is complaining that I tweet too much! Going to sleep for #{callsLeft.reset_time_in_seconds/60} minutes / cc @#{ADMIN_USERNAME}")
+      puts "We hit the limit already! Going to sleep for #{callsLeft.reset_time_in_seconds/60} minutes."
+      sleep callsLeft.reset_time_in_seconds
+    rescue Twitter::ServiceUnavailable, Twitter::BadGateway 
+      puts "Twitter is not available at the moment. Sleeping for 30 seconds"
+      sleep 30
+      continue
+    end    
   end
 end
 
