@@ -3,7 +3,7 @@ require "twitter"
 require 'sqlite3'
 require 'active_record'
 require 'config.rb'
-MY_VERSION = "0.0.2"
+MY_VERSION = "0.0.3"
 
 ActiveRecord::Base.establish_connection(:adapter => 'sqlite3', :database => MY_DB_NAME)
 class Fact < ActiveRecord::Base
@@ -72,7 +72,7 @@ while(1)
             Twitter.update("@#{mention.user.screen_name} Version #{MY_VERSION} | #{rand(89)+10}".slice(0..139), {:in_reply_to_status_id => mention.id})
           elsif mention.text.downcase.start_with? "@#{MY_USERNAME.downcase} ?? help"
             puts "Got a help request from @#{mention.user.screen_name}"
-            Twitter.update("@#{mention.user.screen_name} ?? help | ?? version | ?? keyword | !learn keyword definition | #{rand(89)+10}", {:in_reply_to_status_id => mention.id})
+            Twitter.update("@#{mention.user.screen_name} ?? help | ?? version | ?? keyword | !learn keyword definition | !say @user blah | !who keyword | #{rand(89)+10}", {:in_reply_to_status_id => mention.id})
           elsif mention.text.downcase.start_with? "@#{MY_USERNAME.downcase} !learn "
             keyword = mention.text[/learn (\w+) (.+)/,1]
             definition = mention.text[/learn (\w+) (.+)/,2]
@@ -101,6 +101,15 @@ while(1)
             else  
               puts "Saying to @#{username} => #{message}"
               Twitter.update("@#{username} #{message} | #{rand(89)+10}".slice(0..139))
+            end
+          elsif mention.text.downcase.start_with? "@#{MY_USERNAME.downcase} !who "
+            keyword = mention.text[/who (\w+)/,1]
+            key = Fact.find_by_keyword(keyword)
+            if key.nil?
+              Twitter.update("@#{mention.user.screen_name} Sorry, I don't know who defined #{keyword}. | #{rand(89)+10}".slice(0..139), {:in_reply_to_status_id => mention.id})
+            else
+              puts "Who @#{keyword} ? #{key.author}"
+              Twitter.update("@#{mention.user.screen_name} #{keyword} defined by #{key.author} on #{key.date_created} | #{rand(89)+10}".slice(0..139), { :in_reply_to_status_id => mention.id })
             end
           elsif mention.text.downcase.start_with? "@#{MY_USERNAME.downcase} ?? "
             #?? keyword @includeme
