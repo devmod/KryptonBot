@@ -3,6 +3,7 @@ require "twitter"
 require 'sqlite3'
 require 'active_record'
 require 'config.rb'
+require 'dnsruby'
 MY_VERSION = "0.0.3"
 
 ActiveRecord::Base.establish_connection(:adapter => 'sqlite3', :database => MY_DB_NAME)
@@ -26,6 +27,17 @@ class State < ActiveRecord::Base
   end
 end
 
+def myJoin(a)
+  tmp = ""
+  a.each do |e|
+    if !tmp.empty? 
+      tmp += ", "
+    end
+    tmp += e.to_s
+  end
+  return tmp
+end
+
 Twitter.configure do |config|
   config.consumer_key = @consumer_key
   config.consumer_secret = @consumer_secret
@@ -33,6 +45,7 @@ Twitter.configure do |config|
   config.oauth_token_secret = @secret
 end
 
+resolver = Dnsruby::DNS.new({:nameserver=>["8.8.8.8", "8.8.4.4"]})
 #puts Twitter::Client::TimeLine.inspect
 state = State.find(:first)
 if state.nil?
@@ -62,7 +75,7 @@ while(1)
   rescue Twitter::ServiceUnavailable, Twitter::BadGateway 
     puts "Twitter is not available at the moment. Sleeping for 30 seconds"
     sleep 30
-    continue
+    next
   end
   if callsLeft.remaining_hits < 64
     puts "HITS: #{callsLeft.remaining_hits}/#{callsLeft.hourly_limit} | Reset in #{callsLeft.reset_time_in_seconds} seconds | Reset @ #{callsLeft.reset_time}"
@@ -80,7 +93,7 @@ while(1)
             Twitter.update("@#{mention.user.screen_name} Version #{MY_VERSION} | #{rand(89)+10}".slice(0..139), {:in_reply_to_status_id => mention.id})
           elsif mention.text.downcase.start_with? "@#{MY_USERNAME.downcase} ?? help"
             puts "Got a help request from @#{mention.user.screen_name}"
-            Twitter.update("@#{mention.user.screen_name} ?? help | ?? version | ?? keyword | !learn keyword definition | !say @user blah | !who keyword | #{rand(89)+10}", {:in_reply_to_status_id => mention.id})
+            Twitter.update("@#{mention.user.screen_name} ?? help | ?? version | ?? keyword | !learn key def | !say @user meh | !who key | !getaddress me.com | !getname 6.6.6.6 | #{rand(89)+10}", {:in_reply_to_status_id => mention.id})
           elsif mention.text.downcase.start_with? "@#{MY_USERNAME.downcase} !learn "
             keyword = mention.text[/learn (\S+) (.+)/,1]
             definition = mention.text[/learn (\S+) (.+)/,2]
@@ -118,6 +131,26 @@ while(1)
             else
               puts "Who @#{keyword} ? #{key.author}"
               Twitter.update("@#{mention.user.screen_name} #{keyword} defined by #{key.author} on #{key.date_created} | #{rand(89)+10}".slice(0..139), { :in_reply_to_status_id => mention.id })
+            end
+          elsif mention.text.downcase.start_with? "@#{MY_USERNAME.downcase} !getaddress "
+            name = mention.text[/getaddress (\S+)/,1]
+            puts "Getaddr #{name} for @#{mention.user.screen_name}"
+            begin
+              ipaddrs = resolver.getaddresses(name)
+              Twitter.update("@#{mention.user.screen_name} #{name}: #{ipaddrs.join(", ")} | #{rand(89)+10}".slice(0..139), {:in_reply_to_status_id => mention.id})
+            rescue Dnsruby::NXDomain, Dnsruby::ResolvError, TypeError, ArgumentError => e
+              puts e.message 
+              Twitter.update("@#{mention.user.screen_name} Sorry, I could not resolve #{name} | #{rand(89)+10}".slice(0..139), { :in_reply_to_status_id => mention.id })        
+            end
+          elsif mention.text.downcase.start_with? "@#{MY_USERNAME.downcase} !getname "
+            addr = mention.text[/getname (\S+)/,1]
+            puts "Getname #{addr} for @#{mention.user.screen_name}"
+            begin
+              names = resolver.getnames(addr)
+              Twitter.update("@#{mention.user.screen_name} #{addr}: #{myJoin(names)} | #{rand(89)+10}".slice(0..139), {:in_reply_to_status_id => mention.id})
+            rescue Dnsruby::NXDomain, Dnsruby::ResolvError, TypeError, ArgumentError => e
+              puts e.message 
+              Twitter.update("@#{mention.user.screen_name} Sorry, I could not resolve #{addr} | #{rand(89)+10}".slice(0..139), { :in_reply_to_status_id => mention.id })        
             end
           elsif mention.text.downcase.start_with? "@#{MY_USERNAME.downcase} ?? "
             #?? keyword @includeme
@@ -157,7 +190,7 @@ while(1)
     rescue Twitter::ServiceUnavailable, Twitter::BadGateway 
       puts "Twitter is not available at the moment. Sleeping for 30 seconds"
       sleep 30
-      continue
+      next
     end    
   end
 end
