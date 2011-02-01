@@ -162,7 +162,7 @@ while(1)
             else
               Twitter.update("@#{mention.user.screen_name} #{keyword}: #{w.definition} | #{rand(89)+10}".slice(0..139), {:in_reply_to_status_id => mention.id})
             end
-          elsif mention.text.downcase.start_with? "@#{MY_USERNAME.downcase}"
+          elsif (mention.text.downcase.start_with? "@#{MY_USERNAME.downcase} !") || (mention.text.downcase.start_with? "@#{MY_USERNAME.downcase} ?")
             puts "I don't know this command: #{mention.text}"
             Twitter.update("@#{mention.user.screen_name} Sorry, I have no idea what you are talking about! (try @#{MY_USERNAME} ?? help) | #{rand(89)+10}".slice(0..139), {:in_reply_to_status_id => mention.id})
           else
