@@ -50,10 +50,12 @@ while i < (lines.count) do
     rescue Exception => e
       puts "#### Exception #{e.inspect}"
     end
+    i += 5
   else
     #puts "This line does not start with k(ey), skipping... #{lines[i]}"
+    i += 1
   end
-  i += 1
+
 end
 
 puts "Inserted #{inserted} facts into the db"
