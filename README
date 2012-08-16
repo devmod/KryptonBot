@@ -1,1 +1,6 @@
-_Quick_ hack I made to bring back our beloved @KryptonLC (www.linuxchile.cl) 
+The brains to our beloved @KryptonLC (www.linuxchile.cl) 
+====
+
+gem install bundler
+bundle install
+ruby bot.rb

@@ -1,0 +1,17 @@
+my_username: KryptonLC
+my_name: Krypton
+admin_username: devmod
+admins: [devmod, idevsoftware]
+my_db_name: twitbot.db
+zlearn_file: zLearn.txt
+
+consumer_key: xx
+consumer_secret: xx
+token: 243748835-xx
+secret: xx
+  
+twitpic_key: xx
+twitpic_consumer_key: xx
+twitpic_consumer_secret: "xx
+twitpic_token: xx
+twitpic_secret: xx
